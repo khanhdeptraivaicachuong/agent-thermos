@@ -1,7 +1,7 @@
 {
 	"name": "thermos",
 	"displayName": "Thermos",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "Thermo-nuclear branch review for Claude Code: deep correctness/security audits, strict maintainability rubrics, and subagent orchestration.",
 	"author": {
 		"name": "Thinkscape",

@@ -21,8 +21,12 @@ function read(path: string): string {
 	return readFileSync(join(root, path), "utf8");
 }
 
+function normalize(text: string): string {
+	return text.replace(/\r\n/g, "\n").trimEnd();
+}
+
 function expectGeneratedFile(path: string, expected: string) {
-	expect(read(path).trimEnd()).toBe(expected.trimEnd());
+	expect(normalize(read(path))).toBe(normalize(expected));
 }
 
 function packageVersion(path: string): string {

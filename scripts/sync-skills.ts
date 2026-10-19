@@ -1,7 +1,8 @@
 import { copyFileSync, mkdirSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const sharedSkills = ["thermo-nuclear-review", "thermo-nuclear-code-quality-review"];
 const codexPackageDir = "packages/codex-thermos";

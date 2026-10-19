@@ -1,0 +1,5 @@
+# Keep text files LF in the working tree so generated artifacts compare byte-for-byte.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary

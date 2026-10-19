@@ -10,7 +10,7 @@
 		{
 			"name": "thermos",
 			"description": "Run paired correctness/security and code-quality reviews for a branch.",
-			"version": "0.1.3",
+			"version": "0.1.4",
 			"source": {
 				"source": "npm",
 				"package": "@thinkscape/claude-thermos"

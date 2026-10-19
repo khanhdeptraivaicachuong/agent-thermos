@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const manifests = [
 	{
