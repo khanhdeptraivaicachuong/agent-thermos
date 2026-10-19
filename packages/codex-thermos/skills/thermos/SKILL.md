@@ -55,13 +55,15 @@ summary: <one line>
 
 finding:
   priority: P1
-  path: packages/core/src/render.ts
+  path: <the repo-relative path of the file the change touched>
   side: new
-  line: 112
-  quote: const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  line: <the line number the quote is on>
+  quote: <one changed line, copied verbatim, without its leading + or - marker>
   title: <one line>
   impact: <the trigger and the resulting impact>
 ~~~
+
+Every value in that card is a placeholder. A card that still holds a placeholder is not a finding.
 
 Rules:
 
