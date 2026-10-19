@@ -1,3 +1,5 @@
+import { contextSectionLabels, reviewerTaskHead } from "./generated/prompts.ts";
+
 export type PiThermosProvider = "nico" | "gotgenes" | "tintinweb";
 
 export type ProviderPreference = PiThermosProvider | "auto";
@@ -144,16 +146,22 @@ export function buildThermosPayload(provider: PiThermosProvider, prompt: string)
 }
 
 function buildSharedPrompt(prompt: string): string {
-	return `Run Thermos against this scope. Return prioritized findings with file references and evidence.
+	return `${reviewerTaskHead}
 
-The parent session should populate the evidence sections before launching this agent. Review only the scoped diff and changed-file context. If placeholders remain, collect the missing context when tools allow; otherwise report that the review lacks enough evidence instead of guessing.
-
-### Git / diff output
+${contextSectionLabel(0)}
 <paste git status, base ref, changed-file list, and relevant diff here>
 
-### Changed file contents
+${contextSectionLabel(1)}
 <paste changed file contents or focused excerpts needed to verify findings here>
 
-### User scope / intent
+${contextSectionLabel(2)}
 ${prompt}`;
+}
+
+function contextSectionLabel(index: number): string {
+	const label = contextSectionLabels[index];
+	if (label === undefined) {
+		throw new Error(`Generated context section label ${index} is missing`);
+	}
+	return label;
 }

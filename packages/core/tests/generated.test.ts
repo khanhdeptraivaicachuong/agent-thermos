@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { piPromptsModulePath, renderPiPromptsModule } from "../../../scripts/render-artifacts.ts";
+import {
+	contextSectionLabels as generatedContextSectionLabels,
+	reviewerTaskHead as generatedReviewerTaskHead,
+	thermosWorkflow as generatedThermosWorkflow,
+} from "../../pi-thermos/src/generated/prompts.ts";
+import { contextSectionLabels, reviewerTaskHead, thermosWorkflow } from "../src/content.ts";
 import {
 	renderClaudeAgent,
 	renderClaudeRunCommand,
@@ -81,6 +88,28 @@ describe("generated package files", () => {
 				expectGeneratedFile(`packages/pi-thermos/agents/${provider}/${file}`, renderPiAgent(kind, provider));
 			}
 		}
+	});
+
+	test("Pi prompt module matches the rendered generator output", () => {
+		expectGeneratedFile(piPromptsModulePath, renderPiPromptsModule());
+	});
+
+	test("Pi prompt module carries the core prompt constants", () => {
+		expect(generatedThermosWorkflow).toBe(thermosWorkflow);
+		expect(generatedReviewerTaskHead).toBe(reviewerTaskHead);
+		expect(generatedContextSectionLabels).toEqual([...contextSectionLabels]);
+	});
+
+	test("Pi package sources read the prompts from the generated module", () => {
+		const indexSource = read("packages/pi-thermos/src/index.ts");
+		const providersSource = read("packages/pi-thermos/src/providers.ts");
+
+		expect(indexSource).toContain('from "./generated/prompts.ts"');
+		expect(indexSource).not.toContain("Determine the review scope from the user request");
+		expect(indexSource).not.toContain("### Git / diff output");
+
+		expect(providersSource).toContain('from "./generated/prompts.ts"');
+		expect(providersSource).not.toContain("### Git / diff output");
 	});
 
 	test("host packages copy shared rubric content from core", () => {

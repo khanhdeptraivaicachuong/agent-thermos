@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { reviewerTaskHead, thermosWorkflow } from "../src/generated/prompts.ts";
 import thermosExtension, { buildThermosPayload, buildThermosPrompt, detectPiSubagentsProvider } from "../src/index.ts";
 
 const root = resolve(import.meta.dir, "..");
@@ -37,6 +38,7 @@ describe("@thinkscape/pi-thermos provider detection", () => {
 		expect(buildThermosPayload("tintinweb", "main").calls[0]?.tool).toBe("Agent");
 		expect(JSON.stringify(buildThermosPayload("tintinweb", "main").calls)).toContain("### Git / diff output");
 		expect(JSON.stringify(buildThermosPayload("tintinweb", "main").calls)).toContain("### Changed file contents");
+		expect(buildThermosPayload("tintinweb", "main").calls[0]?.args.prompt).toContain(reviewerTaskHead);
 	});
 
 	test("registers a valid Pi slash command and submits a provider-aware prompt", async () => {
@@ -85,6 +87,7 @@ describe("@thinkscape/pi-thermos provider detection", () => {
 		expect(prompt).toContain("### Git / diff output");
 		expect(prompt).toContain("### Changed file contents");
 		expect(prompt).toContain("thermo-nuclear-code-quality-review-subagent");
+		expect(prompt).toContain(thermosWorkflow);
 		expect(existsSync(join(root, "skills"))).toBe(false);
 	});
 
