@@ -8,13 +8,14 @@
 		"packages/*"
 	],
 	"scripts": {
-		"build": "bun run sync:skills && bun run sync:versions && bun run validate:generated",
+		"build": "bun run sync:skills && bun run sync:versions && bun run render:artifacts && bun run validate:generated",
 		"changeset": "changeset",
 		"dev": "bun test --watch",
 		"format": "biome check --write .",
 		"lint": "biome check .",
 		"pack:check": "bun scripts/pack-check.ts",
 		"release": "bun run test:ci && changeset publish",
+		"render:artifacts": "bun scripts/render-artifacts.ts",
 		"sync:skills": "bun scripts/sync-skills.ts",
 		"sync:versions": "bun scripts/sync-versions.ts",
 		"test": "bun test",

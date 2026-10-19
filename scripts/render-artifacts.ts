@@ -1,0 +1,47 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+	renderClaudeAgent,
+	renderClaudeRunCommand,
+	renderClaudeShimCommand,
+	renderCodexThermosSkill,
+	renderPiAgent,
+} from "../packages/core/src/render.ts";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const piProviders = ["nico", "gotgenes", "tintinweb"] as const;
+const reviewerKinds = ["deep", "quality"] as const;
+
+const artifacts: Array<[path: string, content: string]> = [
+	["packages/codex-thermos/skills/thermos/SKILL.md", renderCodexThermosSkill()],
+	["packages/claude-thermos/commands/run.md", renderClaudeRunCommand()],
+	["packages/claude-thermos/shims/thermos.md", renderClaudeShimCommand()],
+	[
+		"packages/claude-thermos/agents/thermo-nuclear-review-subagent.md",
+		renderClaudeAgent("deep"),
+	],
+	[
+		"packages/claude-thermos/agents/thermo-nuclear-code-quality-review-subagent.md",
+		renderClaudeAgent("quality"),
+	],
+	...piProviders.flatMap((provider) =>
+		reviewerKinds.map(
+			(kind) =>
+				[
+					`packages/pi-thermos/agents/${provider}/thermo-nuclear-${kind === "deep" ? "review" : "code-quality-review"}-subagent.md`,
+					renderPiAgent(kind, provider),
+				] as [string, string],
+		),
+	),
+];
+
+for (const [path, content] of artifacts) {
+	const target = join(root, path);
+	mkdirSync(dirname(target), { recursive: true });
+	writeFileSync(target, content, "utf8");
+}
+
+console.log(`Rendered ${artifacts.length} host artifacts.`);

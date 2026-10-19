@@ -57,7 +57,8 @@ Pass both agents the same labeled context sections:
 - \`### Changed file contents\`
 - \`### User scope / intent\`
 
-If the plugin-scoped agents are unavailable, run the same two review passes with general-purpose subagents using the rubrics embedded in this command package.`;
+If the plugin-scoped agents are unavailable, run the same two review passes with general-purpose subagents using the rubrics embedded in this command package.
+`;
 }
 
 export function renderClaudeShimCommand(): string {
