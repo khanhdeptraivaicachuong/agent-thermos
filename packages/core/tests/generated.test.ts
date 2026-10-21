@@ -13,6 +13,8 @@ import {
 	renderClaudeRunCommand,
 	renderClaudeShimCommand,
 	renderCodexThermosSkill,
+	renderDeepseekHarnessPayload,
+	renderDeepseekHarnessSkill,
 	renderPiAgent,
 } from "../src/render.ts";
 
@@ -30,6 +32,19 @@ function read(path: string): string {
 
 function normalize(text: string): string {
 	return text.replace(/\r\n/g, "\n").trimEnd();
+}
+
+function countOccurrences(text: string, needle: string): number {
+	return text.split(needle).length - 1;
+}
+
+function frontmatterKeys(text: string): string[] {
+	const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+	if (!match) return [];
+	return (match[1] ?? "")
+		.split("\n")
+		.map((line) => line.split(":")[0]?.trim() ?? "")
+		.filter((key) => key.length > 0);
 }
 
 function expectGeneratedFile(path: string, expected: string) {
@@ -126,9 +141,45 @@ describe("generated package files", () => {
 			"packages/codex-thermos/assets",
 			"packages/claude-thermos/assets",
 			"packages/pi-thermos/assets",
+			"packages/deepseek-harness-thermos/assets",
 		]) {
 			expect(existsSync(join(root, dir, "logo.png"))).toBe(true);
 			expect(existsSync(join(root, dir, "icon.png"))).toBe(true);
 		}
+	});
+
+	test("DeepSeek Harness package ships the thermos skill and its reviewer payloads", () => {
+		expectGeneratedFile("packages/deepseek-harness-thermos/skill/thermos/SKILL.md", renderDeepseekHarnessSkill());
+		expectGeneratedFile(
+			"packages/deepseek-harness-thermos/skill/thermos/references/deep-review-payload.md",
+			renderDeepseekHarnessPayload("deep"),
+		);
+		expectGeneratedFile(
+			"packages/deepseek-harness-thermos/skill/thermos/references/code-quality-payload.md",
+			renderDeepseekHarnessPayload("quality"),
+		);
+	});
+
+	test("DeepSeek Harness skill keeps the DSH invocation contract", () => {
+		const skill = read("packages/deepseek-harness-thermos/skill/thermos/SKILL.md");
+		expect(countOccurrences(skill, "thermos-findings/1")).toBe(1);
+		expect(skill).toContain("disable-model-invocation: true");
+		expect(skill).not.toContain("subagent_type");
+		expect(skill).not.toContain("run_in_background");
+		expect(frontmatterKeys(skill)).toEqual(["name", "description", "disable-model-invocation"]);
+	});
+
+	test("DeepSeek Harness payloads carry one rubric and no frontmatter", () => {
+		const deep = read("packages/deepseek-harness-thermos/skill/thermos/references/deep-review-payload.md");
+		const quality = read("packages/deepseek-harness-thermos/skill/thermos/references/code-quality-payload.md");
+
+		expect(deep.startsWith("---")).toBe(false);
+		expect(quality.startsWith("---")).toBe(false);
+		expect(deep).toContain("# Thermo Nuclear Review");
+		expect(quality).toContain("# Thermo-Nuclear Code Quality Review");
+		expect(countOccurrences(deep, "thermos-findings/1")).toBe(1);
+		expect(countOccurrences(quality, "thermos-findings/1")).toBe(1);
+		expect(deep).not.toContain("# Thermo-Nuclear Code Quality Review");
+		expect(quality).not.toContain("# Thermo Nuclear Review");
 	});
 });

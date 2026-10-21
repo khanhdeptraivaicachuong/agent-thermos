@@ -102,21 +102,122 @@ The parent verifies every card before it reaches the report. A card that cannot 
 
 Report shape. When a card survived, the report opens with the biggest risk and then the findings. When no card survived and none was dropped, the report says the review found nothing. When every card was dropped, the report says that no finding could be verified and it names the dropped cards. Name every dropped P0 and P1 with what it claimed and why it could not be verified, and group the dropped P2 and P3 cards into one line.`;
 
-export const thermosWorkflow = `Run the two thermo review passes as async background subagents in parallel, then synthesize their results.
+export const contextSectionPlaceholders = [
+	"<paste git status, base ref, changed-file list, and relevant diff here>",
+	"<paste changed file contents or focused excerpts needed to verify findings here>",
+	"<the user's scope and intent>",
+] as const;
+
+export const reviewerEvidenceEnvelope = `${reviewerTaskHead}
+
+${contextSectionLabels[0]}
+${contextSectionPlaceholders[0]}
+
+${contextSectionLabels[1]}
+${contextSectionPlaceholders[1]}
+
+${contextSectionLabels[2]}`;
+
+export const thermosWorkflowIntro =
+	"Run the two thermo review passes as async background subagents in parallel, then synthesize their results.";
+
+export const reviewScopeStep =
+	"1. Determine the review scope from the user request, PR, current branch, or relevant changed files.";
+
+export const reviewEvidenceStep =
+	"2. Gather the diff and any file/context excerpts needed for reviewers to evaluate the change without guessing. Keep the diff you paste to the reviewers separate from the changed line index you build for verification.";
+
+export const reviewLaunchStep = `3. Launch both subagents in the same message with \`run_in_background: true\`:
+   - \`subagent_type: "thermo-nuclear-review-subagent"\` for bugs, breakages, security, devex regressions, feature-flag leaks, and other branch-audit risks.
+   - \`subagent_type: "thermo-nuclear-code-quality-review-subagent"\` for maintainability, structure, file-size growth, spaghetti, abstractions, and codebase-health risks.`;
+
+export const reviewBriefStep =
+	"4. Pass each subagent the same scoped diff/file context and ask it to return a findings block, with the finding report contract in its instructions.";
+
+export const reviewSynthesisStep =
+	"5. Verify every card against the changed line index, then synthesize the surviving findings with findings first. Merge the findings that both passes reported at the same line and say so. Weight overlapping findings more heavily, resolve disagreements with your own judgment, and keep summaries brief. State how many cards were reported, merged and dropped, and name the dropped ones.";
+
+export const reviewSummaryNote =
+	"If individual background summaries are already visible to the user, do not restate them wholesale. Surface the unified verdict, the highest-signal findings, and any remaining uncertainty.";
+
+export const thermosWorkflow = `${thermosWorkflowIntro}
 
 ## Workflow
 
-1. Determine the review scope from the user request, PR, current branch, or relevant changed files.
-2. Gather the diff and any file/context excerpts needed for reviewers to evaluate the change without guessing. Keep the diff you paste to the reviewers separate from the changed line index you build for verification.
-3. Launch both subagents in the same message with \`run_in_background: true\`:
-   - \`subagent_type: "thermo-nuclear-review-subagent"\` for bugs, breakages, security, devex regressions, feature-flag leaks, and other branch-audit risks.
-   - \`subagent_type: "thermo-nuclear-code-quality-review-subagent"\` for maintainability, structure, file-size growth, spaghetti, abstractions, and codebase-health risks.
-4. Pass each subagent the same scoped diff/file context and ask it to return a findings block, with the finding report contract in its instructions.
-5. Verify every card against the changed line index, then synthesize the surviving findings with findings first. Merge the findings that both passes reported at the same line and say so. Weight overlapping findings more heavily, resolve disagreements with your own judgment, and keep summaries brief. State how many cards were reported, merged and dropped, and name the dropped ones.
+${reviewScopeStep}
+${reviewEvidenceStep}
+${reviewLaunchStep}
+${reviewBriefStep}
+${reviewSynthesisStep}
 
-If individual background summaries are already visible to the user, do not restate them wholesale. Surface the unified verdict, the highest-signal findings, and any remaining uncertainty.
+${reviewSummaryNote}
 
 ${findingVerificationContract}`;
+
+export const deepseekHarnessSkillDescription =
+	"Launch both thermo-nuclear review subagents in parallel, verify the findings they return against the change, then synthesize them. Use for thermos, double thermo review, or combined bug/security and code-quality branch audits.";
+
+export const deepseekHarnessWorkflowIntro =
+	"Run the two thermo review passes as two parallel `subagent` delegations, verify the findings they return against the change, then synthesize their results.";
+
+export const deepseekHarnessScopeStep = reviewScopeStep;
+
+export const deepseekHarnessEvidenceStep =
+	"2. Gather the diff and any file/context excerpts needed for reviewers to evaluate the change without guessing. Use one scope expression for the diff you paste to the reviewers and for the scope you hand the validator, so both describe the same change. The scope has to be a revision range the validator can reproduce, such as `main...HEAD` for a branch or `HEAD` for the uncommitted changes, and the diff you paste has to be `git diff` of that same range.";
+
+export const deepseekHarnessLaunchStep = `3. Prepare each reviewer's prompt before you launch it. Read the payload file for the pass with your read tool, replace its three evidence sections with the scoped diff, the changed file contents and the user's scope, and change nothing else. The relaying rules below say how to check that you pasted it correctly.
+
+4. Launch both reviewers in the same assistant message with two \`subagent\` calls. The tool is concurrency safe, so two calls in one message run in parallel. Each call takes a \`description\` of three to five words and a \`prompt\`:
+   - one call for the deep review, with that pass's prepared prompt
+   - one call for the code-quality review, with that pass's prepared prompt
+   Leave every other parameter unset so each reviewer inherits the current working directory and route.`;
+
+export const deepseekHarnessBriefStep =
+	"5. Write each reviewer's findings block to `.thermos/reviews/<pass>.md` under the working directory, then run the validator:";
+
+export const deepseekHarnessSynthesisStep = `6. Synthesize the surviving findings from the validator's output, findings first. Merge the findings that both passes reported at the same line and say so. Weight overlapping findings more heavily, resolve disagreements with your own judgment, and keep summaries brief. State how many cards were reported, merged and dropped, and name the dropped ones.`;
+
+export const deepseekHarnessRelayRules = `## Relaying the reviewer instructions
+
+DSH has no named subagent types, so each reviewer gets its instructions inside the prompt you pass. Build that prompt from the payload file of the pass:
+
+- deep review pass: \`references/deep-review-payload.md\`
+- code-quality pass: \`references/code-quality-payload.md\`
+
+Read the payload file with your read tool, replace its three evidence sections with the scoped diff, the changed file contents and the user's scope, and change nothing else.
+
+Before you send a prompt, check that the text you pasted still contains the heading of that pass, \`# Thermo Nuclear Review\` for the deep pass and \`# Thermo-Nuclear Code Quality Review\` for the code-quality pass, and that it still contains a \`~~~thermos-findings\` block template. If either one is missing, you altered the text. Paste it again.
+
+If a payload file is missing or unreadable, stop and tell the user to reinstall the Thermos skill. Do not review from memory.
+
+Each prompt carries exactly one rubric. Never put the other pass's rubric, the other pass's name, or any conclusion of your own into a reviewer's prompt. The two passes have to stay independent.`;
+
+export const deepseekHarnessVerificationStep = `   node <skill base>/scripts/thermos-validate.mjs verify --repo <the repository you reviewed> --scope <the same scope expression you used for the diff> --review deep=.thermos/reviews/deep.md --review quality=.thermos/reviews/quality.md
+
+The validator builds the changed line index from git itself, proves or drops every card, and prints what it found. Report the surviving findings from its output, never from your own reading of the diff. When the validator cannot run, say that the locality check did not run, report every card as unverified, and drop nothing.`;
+
+export const deepseekHarnessNoSubagentNote =
+	"If this DSH profile has no `subagent` tool, stop and say that the profile cannot run Thermos. Do not run both passes in the same context, because the second pass would see the first pass's findings.";
+
+export const deepseekHarnessEvidenceEnvelope = `${reviewerEvidenceEnvelope}
+${contextSectionPlaceholders[2]}`;
+
+export const deepseekHarnessThermosWorkflow = `${deepseekHarnessWorkflowIntro}
+
+## Workflow
+
+${deepseekHarnessScopeStep}
+${deepseekHarnessEvidenceStep}
+${deepseekHarnessLaunchStep}
+${deepseekHarnessBriefStep}
+${deepseekHarnessVerificationStep}
+${deepseekHarnessSynthesisStep}
+
+${reviewSummaryNote}
+
+${deepseekHarnessRelayRules}
+
+${deepseekHarnessNoSubagentNote}`;
 
 export const thermoNuclearReviewRubric = `# Thermo Nuclear Review
 
@@ -152,7 +253,7 @@ Never misreport priority or importance. Trace issues end-to-end before reporting
 
 ## Final Response
 
-If you have medium-to-high priority findings and there is a PR for this branch, check PR/MR discussion with gh or glab after your independent audit. Incorporate, validate, dedupe, and attribute BugBot or human findings when relevant.
+If you have P1 or higher findings and there is a PR for this branch, check PR/MR discussion with gh or glab after your independent audit. Incorporate, validate, dedupe, and attribute BugBot or human findings when relevant.
 
 ## Critical Rules
 

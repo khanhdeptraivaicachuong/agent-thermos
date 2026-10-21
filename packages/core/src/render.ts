@@ -4,6 +4,9 @@ import {
 	commandDescription,
 	contextSectionLabels,
 	deepReviewAgentPrompt,
+	deepseekHarnessEvidenceEnvelope,
+	deepseekHarnessSkillDescription,
+	deepseekHarnessThermosWorkflow,
 	findingReportContract,
 	sharedReadmeMethodology,
 	thermoNuclearCodeQualityRubric,
@@ -140,19 +143,50 @@ ${body}
 `;
 }
 
-export function renderPackageReadme(host: "codex" | "claude" | "pi"): string {
+export function renderDeepseekHarnessSkill(): string {
+	return `---
+name: thermos
+description: ${deepseekHarnessSkillDescription}
+disable-model-invocation: true
+---
+
+${deepseekHarnessThermosWorkflow}
+
+${findingReportContract}
+`;
+}
+
+export function renderDeepseekHarnessPayload(kind: "deep" | "quality"): string {
+	const agentPrompt = kind === "deep" ? deepReviewAgentPrompt : codeQualityAgentPrompt;
+	const rubric = kind === "deep" ? thermoNuclearReviewRubric : thermoNuclearCodeQualityRubric;
+
+	return `${deepseekHarnessEvidenceEnvelope}
+
+${agentPrompt}
+
+${rubric}
+
+${findingReportContract}
+`;
+}
+
+export function renderPackageReadme(host: "codex" | "claude" | "pi" | "deepseek-harness"): string {
 	const title =
 		host === "codex"
 			? "@thinkscape/codex-thermos"
 			: host === "claude"
 				? "@thinkscape/claude-thermos"
-				: "@thinkscape/pi-thermos";
+				: host === "deepseek-harness"
+					? "@thinkscape/deepseek-harness-thermos"
+					: "@thinkscape/pi-thermos";
 	const command =
 		host === "codex"
 			? "$thermos"
 			: host === "claude"
 				? "/thermos:run, or /thermos after installing the shim"
-				: "pi-thermos provider orchestration";
+				: host === "deepseek-harness"
+					? "/thermos"
+					: "pi-thermos provider orchestration";
 	return `# ${title}
 
 ![Pixel-art Thermos logo](./assets/logo.png)
@@ -166,14 +200,14 @@ ${upstreamCredit}
 ${
 	host === "codex"
 		? "Install with `codex plugin marketplace add Thinkscape/agent-thermos`, then `codex plugin add thermos@agent-thermos`."
-		: ""
+		: host === "claude"
+			? "Install with `claude plugin marketplace add Thinkscape/agent-thermos`, then `claude plugin install thermos@agent-thermos`."
+			: host === "deepseek-harness"
+				? "Install with `npm install -g @thinkscape/deepseek-harness-thermos`, then `deepseek-harness-thermos install`."
+				: host === "pi"
+					? "Install with `pi install npm:@thinkscape/pi-thermos`."
+					: ""
 }
-${
-	host === "claude"
-		? "Install with `claude plugin marketplace add Thinkscape/agent-thermos`, then `claude plugin install thermos@agent-thermos`."
-		: ""
-}
-${host === "pi" ? "Install with `pi install npm:@thinkscape/pi-thermos`." : ""}
 
 ## Primary invocation
 

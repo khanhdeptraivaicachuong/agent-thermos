@@ -1,0 +1,36 @@
+{
+	"name": "@thinkscape/deepseek-harness-thermos",
+	"version": "0.0.0",
+	"description": "Thermos skill for DeepSeek Harness: deep correctness/security and strict code-quality branch reviews.",
+	"type": "module",
+	"license": "MIT",
+	"author": {
+		"name": "Thinkscape"
+	},
+	"homepage": "https://github.com/Thinkscape/agent-thermos#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Thinkscape/agent-thermos.git",
+		"directory": "packages/deepseek-harness-thermos"
+	},
+	"keywords": [
+		"deepseek-harness",
+		"skill",
+		"thermos",
+		"code-review",
+		"subagents"
+	],
+	"bin": {
+		"deepseek-harness-thermos": "./bin/deepseek-harness-thermos.js"
+	},
+	"files": [
+		"assets",
+		"bin",
+		"skill",
+		"README.md"
+	],
+	"scripts": {
+		"build": "bun test tests",
+		"test": "bun test tests"
+	}
+}

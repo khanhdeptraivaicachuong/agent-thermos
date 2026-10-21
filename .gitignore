@@ -6,3 +6,4 @@ coverage/
 .turbo/
 .cache/
 tmp/
+.thermos/

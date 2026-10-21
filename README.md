@@ -2,11 +2,11 @@
 
 ![Pixel-art Thermos logo](./assets/logo.png)
 
-Platform-agnostic Thermos packages for Codex, Claude Code, and Pi. Thermos runs
-two deliberately different review passes on the same branch: one focused on
-correctness, security, breakages, devex regressions, and feature-gate leaks; the
-other focused on strict code quality, maintainability, structure, abstraction
-boundaries, and "code-judo" simplification opportunities.
+Platform-agnostic Thermos packages for Codex, Claude Code, Pi, and DeepSeek
+Harness. Thermos runs two deliberately different review passes on the same
+branch: one focused on correctness, security, breakages, devex regressions, and
+feature-gate leaks; the other focused on strict code quality, maintainability,
+structure, abstraction boundaries, and "code-judo" simplification opportunities.
 
 This project is inspired by Cursor's original MIT-licensed
 [Thermos plugin](https://github.com/cursor/plugins/tree/main/thermos). The
@@ -23,6 +23,7 @@ installing the published plugin or extension, not for working from a local clone
 | OpenAI Codex | [`@thinkscape/codex-thermos`](./packages/codex-thermos/README.md) | [Codex marketplace entry](./.agents/plugins/marketplace.json), [npm](https://www.npmjs.com/package/@thinkscape/codex-thermos) | `$thermos` |
 | Claude Code | [`@thinkscape/claude-thermos`](./packages/claude-thermos/README.md) | [Claude marketplace entry](./.claude-plugin/marketplace.json), [npm](https://www.npmjs.com/package/@thinkscape/claude-thermos) | `/thermos:run`, or optional `/thermos` shim |
 | Pi | [`@thinkscape/pi-thermos`](./packages/pi-thermos/README.md) | [Pi package catalog](https://pi.dev/packages/@thinkscape/pi-thermos), [npm](https://www.npmjs.com/package/@thinkscape/pi-thermos) | `thermos` command in Pi |
+| DeepSeek Harness | [`@thinkscape/deepseek-harness-thermos`](./packages/deepseek-harness-thermos/README.md) | [npm](https://www.npmjs.com/package/@thinkscape/deepseek-harness-thermos) | `/thermos` in a DeepSeek Harness session |
 | Shared internals | [`@thinkscape/thermos-core`](./packages/core/package.json) | private workspace package | shared prompts, rubrics, templates, and generated package assets |
 
 ## Architecture

@@ -8,6 +8,8 @@ import {
 	renderClaudeRunCommand,
 	renderClaudeShimCommand,
 	renderCodexThermosSkill,
+	renderDeepseekHarnessPayload,
+	renderDeepseekHarnessSkill,
 	renderPiAgent,
 } from "../packages/core/src/render.ts";
 
@@ -44,6 +46,15 @@ const artifacts: Array<[path: string, content: string]> = [
 				] as [string, string],
 		),
 	),
+	["packages/deepseek-harness-thermos/skill/thermos/SKILL.md", renderDeepseekHarnessSkill()],
+	[
+		"packages/deepseek-harness-thermos/skill/thermos/references/deep-review-payload.md",
+		renderDeepseekHarnessPayload("deep"),
+	],
+	[
+		"packages/deepseek-harness-thermos/skill/thermos/references/code-quality-payload.md",
+		renderDeepseekHarnessPayload("quality"),
+	],
 ];
 
 function writeArtifact(path: string, content: string): void {

@@ -57,7 +57,7 @@ Never misreport priority or importance. Trace issues end-to-end before reporting
 
 ## Final Response
 
-If you have medium-to-high priority findings and there is a PR for this branch, check PR/MR discussion with gh or glab after your independent audit. Incorporate, validate, dedupe, and attribute BugBot or human findings when relevant.
+If you have P1 or higher findings and there is a PR for this branch, check PR/MR discussion with gh or glab after your independent audit. Incorporate, validate, dedupe, and attribute BugBot or human findings when relevant.
 
 ## Critical Rules
 
