@@ -36,11 +36,12 @@ The codebase might carefully gate features behind feature flags or internal-only
 If you identify a high risk finding, but the intent of the branch is to introduce that finding – e.g. break some functionality, remove a feature flag, remove a safeguard – AND the scope of the change is well constrained, you SHOULD NOT waste the author's time by reporting the issue to them. However, if you believe it is likely that they are not aware of the full implications of their change, or you are worried that they are under-weighting the negative impacts (extreme example: a developer pushes a PR titled "Delete the database"), or you are worried that the change is actually malicious, you should still report the finding.
 
 ## Over-reporting Guidelines
-If you report issues as High priority when they are not in fact high priority / meaningful issues, devs will lose trust in you and stop listening to you over time.
+Priorities use the P0 to P3 scale of the finding report contract: P0 is a release blocker, P1 is high, P2 is medium and P3 is low, so medium-to-high means P1 or higher.
+If you report issues as P1 (high) priority when they are not in fact high priority / meaningful issues, devs will lose trust in you and stop listening to you over time.
 NEVER misreport the priority / importance of issues. Be extremely thorough in tracing issues end-to-end to gain complete, and total confidence before reporting.
 
 # Final Response
-IF you have medium-to-high priority / risk findings, and there is a PR for this branch, then check the PR/MR discussion using gh/glab cli to see if there are comments from BugBot or others present.
+IF you have P1 or higher findings, and there is a PR for this branch, then check the PR/MR discussion using gh/glab cli to see if there are comments from BugBot or others present.
 If so, take their findings into account. If they found issues you missed, evaluate them to determine if they are valid and include them in your report. If they found some of the same issues you did, see if there is anything from their findings that are worth incorporating into your response.
 Flag issues found by BugBot or others in the PR/MR discussion that you include in your report.
 
