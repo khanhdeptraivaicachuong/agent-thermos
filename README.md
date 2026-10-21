@@ -77,6 +77,7 @@ implementation dramatically simpler.
 
 ```bash
 bun install
+bun run build
 bun run test:ci
 ```
 
@@ -84,11 +85,17 @@ Useful scripts:
 
 | Script | Purpose |
 |:--|:--|
+| `bun run build` | Sync the shared skills and versions, render the host artifacts, and validate the generated files. |
+| `bun run render:artifacts` | Render the host artifacts and the Pi prompt module from the shared constants. |
 | `bun run test` | Run all tests. |
 | `bun run test:ci` | Run lint, typecheck, generated-file checks, tests, and package checks. |
 | `bun run changeset` | Create a changeset. |
 | `bun run version` | Apply changeset versions and changelogs. |
 | `bun run release` | Validate and publish packages through Changesets. |
+
+A change to a constant in `packages/core/src/content.ts` is regenerated into the
+committed host artifacts by `bun run build`; `bun run test:ci` only validates
+them.
 
 ## Release Automation
 
