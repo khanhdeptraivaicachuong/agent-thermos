@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,10 +14,16 @@ const SIDES = ["new", "old"];
 const VERDICTS = ["pass", "needs-changes"];
 
 const REASON_MISSING_FIELD = "missing-field";
-const REASON_UNKNOWN_FIELD = "unknown-field";
 const REASON_INVALID_SIDE = "invalid-side";
 const REASON_NOT_FOUND = "quote-not-found";
 const REASON_AMBIGUOUS = "quote-ambiguous";
+
+const STATUS_VERIFIED = "verified";
+const STATUS_PARTIAL = "partial";
+const STATUS_UNUSABLE = "unusable";
+const STATUS_BLOCKED = "blocked";
+
+const NOTE_NO_BLOCK = "no findings block";
 
 const USAGE =
 	"node thermos-validate.mjs verify --repo <path> --scope <rev-range> --review <label>=<file> [--review <label>=<file> ...] [--json <path>]";
@@ -26,6 +32,7 @@ const BLOCKED_CLOSING =
 
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 const FIELD_LINE = /^([ \t]*)([a-z][a-z0-9_-]*):(.*)$/;
+const FINDING_LABEL = /^\s*finding\s*:/i;
 
 /**
  * Parse the last `~~~thermos-findings` block of a review file.
@@ -59,6 +66,17 @@ function emptyEnvelope() {
 	return { protocol: null, verdict: null, summary: null };
 }
 
+/**
+ * Read the records of a findings block.
+ *
+ * A record starts at a `finding:` label and holds the seven card fields. A
+ * label that is not spelled in lower case opens a record as well, so a
+ * reviewer that writes `Finding:` does not overwrite the record before it. A
+ * card field that arrives after a complete record opens the next record, so a
+ * record without a label is read as a record of its own. A field the card does
+ * not carry continues the field before it, so a value that runs over two lines
+ * stays one value.
+ */
 function parseFindingsBody(body) {
 	const envelope = emptyEnvelope();
 	const notes = [];
@@ -69,6 +87,10 @@ function parseFindingsBody(body) {
 		if (line.trim() === "") continue;
 		const field = parseFieldLine(line);
 		if (field === null) {
+			if (FINDING_LABEL.test(line)) {
+				current = startRecord(rawCards);
+				continue;
+			}
 			if (current !== null && current.lastField !== null) {
 				current.fields[current.lastField] = `${current.fields[current.lastField]} ${line.trim()}`;
 			} else if (current === null) {
@@ -77,18 +99,24 @@ function parseFindingsBody(body) {
 			continue;
 		}
 		if (field.name === "finding") {
-			current = { fields: {}, unknown: [], lastField: null };
-			rawCards.push(current);
+			current = startRecord(rawCards);
 			continue;
 		}
 		if (current !== null && (field.indent > 0 || CARD_FIELDS.includes(field.name))) {
-			if (CARD_FIELDS.includes(field.name)) {
-				current.fields[field.name] = field.value;
-				current.lastField = field.name;
-			} else {
-				if (!current.unknown.includes(field.name)) current.unknown.push(field.name);
-				current.lastField = null;
+			if (!CARD_FIELDS.includes(field.name)) {
+				if (current.lastField !== null) {
+					current.fields[current.lastField] = `${current.fields[current.lastField]} ${line.trim()}`;
+				}
+				continue;
 			}
+			if (holdsEveryCardField(current)) {
+				current = startRecord(rawCards);
+			} else if (current.fields[field.name] !== undefined) {
+				notes.push(`a finding record repeats the field ${field.name}; the first value was kept`);
+				continue;
+			}
+			current.fields[field.name] = field.value;
+			current.lastField = field.name;
 			continue;
 		}
 		if (current !== null) current = null;
@@ -102,6 +130,16 @@ function parseFindingsBody(body) {
 	const cards = rawCards.map((raw, index) => finalizeCard(raw, index));
 	notes.push(...envelopeNotes(envelope, cards.length));
 	return { found: true, envelope, cards, notes };
+}
+
+function startRecord(rawCards) {
+	const record = { fields: {}, lastField: null };
+	rawCards.push(record);
+	return record;
+}
+
+function holdsEveryCardField(record) {
+	return CARD_FIELDS.every((name) => record.fields[name] !== undefined);
 }
 
 function parseFieldLine(line) {
@@ -155,10 +193,7 @@ function finalizeCard(raw, index) {
 		const value = card[name];
 		return value === null || value === undefined || value === "";
 	});
-	if (raw.unknown.length > 0) {
-		card.dropReason = REASON_UNKNOWN_FIELD;
-		card.dropDetail = `a finding record may not carry: ${raw.unknown.join(", ")}`;
-	} else if (missing.length > 0) {
+	if (missing.length > 0) {
 		card.dropReason = REASON_MISSING_FIELD;
 		card.dropDetail = `a finding record is missing: ${missing.join(", ")}`;
 	} else if (!PRIORITIES.includes(card.priority)) {
@@ -464,6 +499,10 @@ function priorityRank(priority) {
  *
  * This is the pure core of the program: no git, no file system. The command
  * line feeds it the diff text and the review texts and reads the result.
+ *
+ * A pass that holds no findings block, or a review file that could not be
+ * read, is marked `unusable`. It contributes no card, the other passes are
+ * verified as usual, and the status of the whole run becomes `unusable`.
  */
 export function verify({ diffText, reviews, repo = "", scope = "", head = "", blocked = false }) {
 	const passes = [];
@@ -471,13 +510,18 @@ export function verify({ diffText, reviews, repo = "", scope = "", head = "", bl
 	const cards = [];
 
 	for (const review of reviews) {
-		const parsed = parseFindingsBlock(review.text);
+		const unreadable = review.error ?? null;
+		const parsed = unreadable === null ? parseFindingsBlock(review.text) : null;
+		const usable = parsed?.found === true;
 		passes.push({
 			pass: review.pass,
-			cards: parsed.cards.length,
-			envelope: parsed.envelope,
-			found: parsed.found,
+			cards: usable ? parsed.cards.length : 0,
+			envelope: usable ? parsed.envelope : emptyEnvelope(),
+			found: usable,
+			status: usable ? STATUS_VERIFIED : STATUS_UNUSABLE,
+			note: unreadable !== null ? unreadable : usable ? null : NOTE_NO_BLOCK,
 		});
+		if (parsed === null) continue;
 		for (const note of parsed.notes) notes.push(`${review.pass}: ${note}`);
 		if (!parsed.found) continue;
 		parsed.cards.forEach((card, position) => {
@@ -499,17 +543,28 @@ export function verify({ diffText, reviews, repo = "", scope = "", head = "", bl
 		matched = matchCards(parseUnifiedDiff(diffText), cards);
 	}
 
+	for (const pass of passes) {
+		if (!pass.found) continue;
+		const own = matched.filter((card) => card.pass === pass.pass);
+		const droppedHere = own.filter((card) => card.state === "dropped").length;
+		pass.status = blocked ? STATUS_BLOCKED : droppedHere > 0 ? STATUS_PARTIAL : STATUS_VERIFIED;
+	}
+
 	const findings = blocked ? [] : groupFindings(matched);
 	const produced = matched.length;
 	const dropped = matched.filter((card) => card.state === "dropped").length;
 	const proven = blocked ? 0 : produced - dropped;
-	const status = blocked ? "blocked" : dropped > 0 ? "partial" : "verified";
+	const unusable = passes.filter((pass) => pass.status === STATUS_UNUSABLE).map((pass) => pass.pass);
+	const status =
+		unusable.length > 0 ? STATUS_UNUSABLE : blocked ? STATUS_BLOCKED : dropped > 0 ? STATUS_PARTIAL : STATUS_VERIFIED;
 
 	return {
 		status,
 		repo,
 		scope,
 		head,
+		blocked,
+		unusable,
 		produced,
 		proven,
 		dropped,
@@ -532,6 +587,7 @@ export function renderDigest(result) {
 	lines.push(`scope: ${result.scope}`);
 	lines.push(`head:  ${result.head === "" ? "(no commit)" : result.head}`);
 	lines.push(`cards: ${result.passes.map((pass) => `${pass.pass}=${pass.cards}`).join(" ")}`);
+	if (result.unusable.length > 0) lines.push(`unusable: ${result.unusable.join(", ")}`);
 	lines.push("");
 	for (const card of result.cards) lines.push(formatCardLine(card));
 	if (result.notes.length > 0) {
@@ -543,7 +599,7 @@ export function renderDigest(result) {
 	lines.push(
 		`produced ${result.produced}  proven ${result.proven}  dropped ${result.dropped}  merged ${result.merged}  findings ${result.findings}`,
 	);
-	lines.push(result.status === "blocked" ? BLOCKED_CLOSING : closingSentence(result));
+	lines.push(closingSentence(result));
 	return lines.join("\n");
 }
 
@@ -562,6 +618,14 @@ function formatCardLine(card) {
 }
 
 function closingSentence(result) {
+	const sentences = [];
+	if (result.blocked) sentences.push(BLOCKED_CLOSING);
+	if (result.unusable.length > 0) {
+		const head = result.head === "" ? "an unnamed tree" : result.head;
+		const rest = result.blocked ? "" : `; the cards of the other passes were checked against ${head}`;
+		sentences.push(`Not proved: a pass held no findings block, so no card of it was checked${rest}.`);
+	}
+	if (sentences.length > 0) return sentences.join(" ");
 	const head = result.head === "" ? "an unnamed tree" : result.head;
 	return `Proved against ${head}: every reported card points at a line this change touched. Not proved: who wrote a card, because the parent writes the review file, and a card proven against a tree the reviewer never saw is still proven against the tree it names.`;
 }
@@ -580,6 +644,24 @@ export function toJsonPayload(result) {
 		dropped: result.dropped,
 		merged: result.merged,
 		findings: result.findings,
+		passes: result.passes.map((pass) => {
+			const payload = {
+				pass: pass.pass,
+				status: pass.status,
+				cards: pass.cards,
+				findings: result.findingGroups
+					.filter((group) => group.passes.includes(pass.pass))
+					.map((group) => ({
+						path: group.path,
+						side: group.side,
+						line: group.line,
+						priority: group.priority,
+						title: group.title,
+					})),
+			};
+			if (pass.note !== null) payload.note = pass.note;
+			return payload;
+		}),
 		cards: result.cards.map((card) => {
 			const payload = {
 				key: card.key,
@@ -600,6 +682,7 @@ export function toJsonPayload(result) {
 			return payload;
 		}),
 		findingGroups: result.findingGroups,
+		notes: result.notes,
 	};
 }
 
@@ -675,16 +758,29 @@ export function parseArgs(argv) {
 
 function readReviewFiles(reviews) {
 	return reviews.map((review) => {
-		let text;
 		try {
-			text = readFileSync(resolve(review.file), "utf8");
+			return { pass: review.label, text: readFileSync(resolve(review.file), "utf8"), error: null };
 		} catch (error) {
-			throw new Error(`review file ${review.file} could not be read: ${error.message}`);
+			return { pass: review.label, text: "", error: `could not be read: ${error.message}` };
 		}
-		return { pass: review.label, text };
 	});
 }
 
+/**
+ * Run the program and return its exit code.
+ *
+ * The digest is printed before the program returns, whatever the exit code is,
+ * so a parent that reads stdout learns what the run found.
+ *
+ * Exit codes:
+ *   0  every card of every readable pass was proved
+ *   1  at least one card could not be proved
+ *   2  the command line was wrong
+ *   3  the changed line index could not be built
+ *   4  at least one pass was unusable
+ *
+ * Statuses: `verified`, `partial`, `unusable`, `blocked`.
+ */
 export function main(argv) {
 	let options;
 	try {
@@ -700,27 +796,19 @@ export function main(argv) {
 		return 3;
 	}
 
-	let reviews;
-	try {
-		reviews = readReviewFiles(options.reviews);
-	} catch (error) {
-		process.stderr.write(`thermos-validate: unusable: ${error.message}\n`);
-		return 4;
-	}
-
-	const parsedReviews = reviews.map((review) => ({
-		pass: review.pass,
-		found: parseFindingsBlock(review.text).found,
-	}));
-	const unusable = parsedReviews.find((review) => !review.found);
-	if (unusable !== undefined) {
-		process.stderr.write(`thermos-validate: unusable: review ${unusable.pass} holds no readable findings block.\n`);
-		return 4;
-	}
-
+	const reviews = readReviewFiles(options.reviews);
 	const scope = options.scope;
 	const head = headCommit(repoRoot);
-	const diff = runGit(repoRoot, ["diff", "--unified=0", "--no-color", scope]);
+	const diff = runGit(repoRoot, [
+		"diff",
+		"--unified=0",
+		"--no-color",
+		"--no-ext-diff",
+		"--no-textconv",
+		"--src-prefix=a/",
+		"--dst-prefix=b/",
+		scope,
+	]);
 	const blocked = !diff.ok;
 	const result = verify({
 		diffText: diff.stdout,
@@ -750,6 +838,18 @@ export function main(argv) {
 		}
 	}
 
+	if (result.unusable.length > 0) {
+		const details = result.passes
+			.filter((pass) => pass.status === STATUS_UNUSABLE)
+			.map((pass) =>
+				pass.note === NOTE_NO_BLOCK
+					? `review ${pass.pass} holds no readable findings block`
+					: `review ${pass.pass} ${pass.note}`,
+			)
+			.join("; ");
+		process.stderr.write(`thermos-validate: unusable: ${details}\n`);
+		return 4;
+	}
 	if (blocked) {
 		process.stderr.write(`thermos-validate: blocked: the changed line index could not be built for scope ${scope}.\n`);
 		return 3;
@@ -757,13 +857,37 @@ export function main(argv) {
 	return result.dropped > 0 ? 1 : 0;
 }
 
+/**
+ * Tell whether this file is the program the user ran.
+ *
+ * Node resolves the real path of the module it loaded, so a script that is
+ * reached through a symlink or a junction is compared by its real path. When
+ * that path cannot be read, the unresolved path decides.
+ */
 function isDirectRun() {
 	const entry = process.argv[1];
 	if (entry === undefined) return false;
-	const script = fileURLToPath(import.meta.url);
-	const resolved = resolve(entry);
-	if (resolved === script) return true;
-	return process.platform === "win32" && resolved.toLowerCase() === script.toLowerCase();
+	return samePath(resolve(entry), fileURLToPath(import.meta.url));
+}
+
+function samePath(left, right) {
+	const leftReal = realPathOrNull(left);
+	const rightReal = realPathOrNull(right);
+	if (leftReal !== null && rightReal !== null) return equalPath(leftReal, rightReal);
+	return equalPath(left, right);
+}
+
+function realPathOrNull(path) {
+	try {
+		return realpathSync(path);
+	} catch {
+		return null;
+	}
+}
+
+function equalPath(left, right) {
+	if (process.platform !== "win32") return left === right;
+	return left.toLowerCase() === right.toLowerCase();
 }
 
 if (isDirectRun()) {

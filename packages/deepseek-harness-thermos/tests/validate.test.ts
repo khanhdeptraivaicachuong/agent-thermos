@@ -137,7 +137,7 @@ finding:
 		expect(parsed.cards[0]?.dropDetail).toContain("quote");
 	});
 
-	test("drops a record that carries a field it may not carry", () => {
+	test("keeps a field the card does not carry inside the field before it", () => {
 		const parsed = parseFindingsBlock(`~~~thermos-findings
 protocol: thermos-findings/1
 verdict: needs-changes
@@ -155,8 +155,142 @@ finding:
 ~~~`);
 
 		expect(parsed.cards).toHaveLength(1);
-		expect(parsed.cards[0]?.dropReason).toBe("unknown-field");
-		expect(parsed.cards[0]?.dropDetail).toContain("verdict");
+		expect(parsed.cards[0]?.dropReason).toBeNull();
+		expect(parsed.cards[0]?.impact).toContain("the impact");
+		expect(parsed.cards[0]?.impact).toContain("verdict: pass");
+	});
+
+	test("keeps a wrapped advice line inside the impact", () => {
+		const parsed = parseFindingsBlock(`~~~thermos-findings
+protocol: thermos-findings/1
+verdict: needs-changes
+summary: one line
+
+finding:
+  priority: P2
+  path: src/app.ts
+  side: new
+  line: 3
+  quote: export const risky = true;
+  title: A title
+  impact: a caller that imports it trips the missing guard.
+    note: the guard is missing on the next line
+~~~`);
+
+		expect(parsed.cards).toHaveLength(1);
+		expect(parsed.cards[0]?.dropReason).toBeNull();
+		expect(parsed.cards[0]?.impact).toContain("a caller that imports it trips the missing guard.");
+		expect(parsed.cards[0]?.impact).toContain("note: the guard is missing on the next line");
+	});
+
+	test("keeps a wrapped url inside the impact", () => {
+		const parsed = parseFindingsBlock(`~~~thermos-findings
+protocol: thermos-findings/1
+verdict: needs-changes
+summary: one line
+
+finding:
+  priority: P2
+  path: src/app.ts
+  side: new
+  line: 3
+  quote: export const risky = true;
+  title: A title
+  impact: the trace shows
+    https://example.com:443/x
+~~~`);
+
+		expect(parsed.cards).toHaveLength(1);
+		expect(parsed.cards[0]?.dropReason).toBeNull();
+		expect(parsed.cards[0]?.impact).toContain("https://example.com:443/x");
+	});
+
+	test("reads a second record whose label is spelled with a capital letter", () => {
+		const parsed = parseFindingsBlock(`~~~thermos-findings
+protocol: thermos-findings/1
+verdict: needs-changes
+summary: two records
+
+finding:
+  priority: P1
+  path: src/app.ts
+  side: new
+  line: 3
+  quote: export const risky = true;
+  title: The new export is unguarded
+  impact: a caller that imports it trips the missing guard
+Finding:
+  priority: P3
+  path: src/other.ts
+  side: new
+  line: 2
+  quote: export const other = 3;
+  title: A second record
+  impact: a second impact
+~~~`);
+
+		expect(parsed.cards).toHaveLength(2);
+		expect(parsed.cards[0]?.priority).toBe("P1");
+		expect(parsed.cards[0]?.path).toBe("src/app.ts");
+		expect(parsed.cards[0]?.dropReason).toBeNull();
+		expect(parsed.cards[1]?.priority).toBe("P3");
+		expect(parsed.cards[1]?.path).toBe("src/other.ts");
+		expect(parsed.cards[1]?.dropReason).toBeNull();
+	});
+
+	test("reads a second record that carries no label of its own", () => {
+		const parsed = parseFindingsBlock(`~~~thermos-findings
+protocol: thermos-findings/1
+verdict: needs-changes
+summary: two records
+
+finding:
+  priority: P1
+  path: src/app.ts
+  side: new
+  line: 3
+  quote: export const risky = true;
+  title: The new export is unguarded
+  impact: a caller that imports it trips the missing guard
+  priority: P3
+  path: src/other.ts
+  side: new
+  line: 2
+  quote: export const other = 3;
+  title: A second record
+  impact: a second impact
+~~~`);
+
+		expect(parsed.cards).toHaveLength(2);
+		expect(parsed.cards[0]?.priority).toBe("P1");
+		expect(parsed.cards[0]?.path).toBe("src/app.ts");
+		expect(parsed.cards[0]?.dropReason).toBeNull();
+		expect(parsed.cards[1]?.priority).toBe("P3");
+		expect(parsed.cards[1]?.path).toBe("src/other.ts");
+		expect(parsed.cards[1]?.dropReason).toBeNull();
+	});
+
+	test("keeps the first value of a field an incomplete record repeats", () => {
+		const parsed = parseFindingsBlock(`~~~thermos-findings
+protocol: thermos-findings/1
+verdict: needs-changes
+summary: one line
+
+finding:
+  priority: P1
+  priority: P2
+  path: src/app.ts
+  side: new
+  line: 3
+  quote: export const risky = true;
+  title: A title
+  impact: the impact
+~~~`);
+
+		expect(parsed.cards).toHaveLength(1);
+		expect(parsed.cards[0]?.priority).toBe("P1");
+		expect(parsed.cards[0]?.dropReason).toBeNull();
+		expect(parsed.notes.join("\n")).toContain("repeats the field priority");
 	});
 
 	test("drops a record whose side is neither new nor old", () => {
@@ -460,15 +594,17 @@ describe("thermos-validate counts", () => {
 	});
 });
 
+function gitIn(dir: string, ...args: string[]): string {
+	const result = Bun.spawnSync({ cmd: ["git", "-C", dir, ...args], stdout: "pipe", stderr: "pipe" });
+	if (result.exitCode !== 0) {
+		throw new Error(`git ${args.join(" ")} failed: ${result.stderr.toString()}`);
+	}
+	return result.stdout.toString();
+}
+
 function createRepository(): string {
 	const dir = mkdtempSync(join(tmpdir(), "thermos-validate-"));
-	const git = (...args: string[]) => {
-		const result = Bun.spawnSync({ cmd: ["git", "-C", dir, ...args], stdout: "pipe", stderr: "pipe" });
-		if (result.exitCode !== 0) {
-			throw new Error(`git ${args.join(" ")} failed: ${result.stderr.toString()}`);
-		}
-		return result.stdout.toString();
-	};
+	const git = (...args: string[]) => gitIn(dir, ...args);
 	git("init");
 	mkdirSync(join(dir, "src"));
 	writeFileSync(join(dir, "src/app.ts"), "export const a = 1;\nexport const b = 2;\n");
@@ -484,8 +620,18 @@ function writeReview(dir: string, name: string, text: string): string {
 	return path;
 }
 
-function runValidator(args: string[]) {
-	return Bun.spawnSync({ cmd: ["node", scriptPath, ...args], stdout: "pipe", stderr: "pipe" });
+function runValidator(args: string[], script: string = scriptPath) {
+	return Bun.spawnSync({ cmd: ["node", script, ...args], stdout: "pipe", stderr: "pipe" });
+}
+
+function createLink(dir: string, target: string): string {
+	const link = join(dir, "link");
+	const cmd = process.platform === "win32" ? ["cmd", "/c", "mklink", "/J", link, target] : ["ln", "-s", target, link];
+	const result = Bun.spawnSync({ cmd, stdout: "pipe", stderr: "pipe" });
+	if (result.exitCode !== 0) {
+		throw new Error(`the link to ${target} could not be made: ${result.stderr.toString()}`);
+	}
+	return link;
 }
 
 describe("thermos-validate command line", () => {
@@ -623,14 +769,115 @@ finding:
 		}
 	});
 
-	test("exits with 4 when a review file holds no findings block", () => {
+	test("exits with 4 and still prints the digest when a review file holds no findings block", () => {
 		const dir = createRepository();
 		try {
 			const review = writeReview(dir, "deep.md", "# Review\n\nNothing to report here.\n");
-			const result = runValidator(["verify", "--repo", dir, "--scope", "HEAD", "--review", `deep=${review}`]);
+			const jsonPath = join(dir, "result.json");
+			const result = runValidator([
+				"verify",
+				"--repo",
+				dir,
+				"--scope",
+				"HEAD",
+				"--review",
+				`deep=${review}`,
+				"--json",
+				jsonPath,
+			]);
 
 			expect(result.exitCode).toBe(4);
+			const stdout = result.stdout.toString();
+			expect(stdout).toContain("thermos-validate");
+			expect(stdout).toContain("unusable: deep");
 			expect(result.stderr.toString()).toContain("unusable");
+
+			const payload = JSON.parse(readFileSync(jsonPath, "utf8")) as {
+				status: string;
+				passes: Array<{ pass: string; status: string; findings: unknown[]; note?: string }>;
+			};
+			expect(payload.status).toBe("unusable");
+			expect(payload.passes[0]?.pass).toBe("deep");
+			expect(payload.passes[0]?.status).toBe("unusable");
+			expect(payload.passes[0]?.findings).toEqual([]);
+			expect(payload.passes[0]?.note).toBe("no findings block");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("proves the readable passes and names the unusable one", () => {
+		const dir = createRepository();
+		try {
+			const deep = writeReview(dir, "deep.md", wellFormedBlock);
+			const quality = writeReview(dir, "quality.md", "# Review\n\nNothing to report here.\n");
+			const jsonPath = join(dir, "result.json");
+			const result = runValidator([
+				"verify",
+				"--repo",
+				dir,
+				"--scope",
+				"HEAD",
+				"--review",
+				`deep=${deep}`,
+				"--review",
+				`quality=${quality}`,
+				"--json",
+				jsonPath,
+			]);
+
+			expect(result.exitCode).toBe(4);
+			const stdout = result.stdout.toString();
+			expect(stdout).toContain("cards: deep=1 quality=0");
+			expect(stdout).toContain("unusable: quality");
+			expect(stdout).toContain("src/app.ts:3 (new)");
+			expect(stdout).toContain("produced 1  proven 1  dropped 0  merged 0  findings 1");
+
+			const payload = JSON.parse(readFileSync(jsonPath, "utf8")) as {
+				status: string;
+				passes: Array<{ pass: string; status: string; findings: unknown[]; note?: string }>;
+			};
+			expect(payload.status).toBe("unusable");
+			expect(payload.passes[0]?.status).toBe("verified");
+			expect(payload.passes[1]?.status).toBe("unusable");
+			expect(payload.passes[1]?.note).toBe("no findings block");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("proves a card even when the repository sets diff.external and diff.mnemonicPrefix", () => {
+		const dir = createRepository();
+		try {
+			gitIn(dir, "config", "diff.external", "echo");
+			gitIn(dir, "config", "diff.mnemonicPrefix", "true");
+			const review = writeReview(dir, "deep.md", wellFormedBlock);
+			const result = runValidator(["verify", "--repo", dir, "--scope", "HEAD", "--review", `deep=${review}`]);
+
+			expect(result.exitCode).toBe(0);
+			const stdout = result.stdout.toString();
+			expect(stdout).toContain("src/app.ts:3 (new)");
+			expect(stdout).not.toContain("relocated");
+			expect(stdout).toContain("produced 1  proven 1  dropped 0  merged 0  findings 1");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("runs when it is reached through a link to the skill directory", () => {
+		const dir = createRepository();
+		try {
+			const review = writeReview(dir, "deep.md", wellFormedBlock);
+			const link = createLink(dir, resolve(import.meta.dir, "../skill/thermos"));
+			const result = runValidator(
+				["verify", "--repo", dir, "--scope", "HEAD", "--review", `deep=${review}`],
+				join(link, "scripts", "thermos-validate.mjs"),
+			);
+
+			expect(result.exitCode).toBe(0);
+			const stdout = result.stdout.toString();
+			expect(stdout).toContain("thermos-validate");
+			expect(stdout).toContain("src/app.ts:3 (new)");
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
