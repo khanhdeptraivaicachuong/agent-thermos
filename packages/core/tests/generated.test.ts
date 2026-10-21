@@ -4,10 +4,11 @@ import { join, resolve } from "node:path";
 import { piPromptsModulePath, renderPiPromptsModule } from "../../../scripts/render-artifacts.ts";
 import {
 	contextSectionLabels as generatedContextSectionLabels,
+	contextSectionPlaceholders as generatedContextSectionPlaceholders,
 	reviewerTaskHead as generatedReviewerTaskHead,
 	thermosWorkflow as generatedThermosWorkflow,
 } from "../../pi-thermos/src/generated/prompts.ts";
-import { contextSectionLabels, reviewerTaskHead, thermosWorkflow } from "../src/content.ts";
+import { contextSectionLabels, contextSectionPlaceholders, reviewerTaskHead, thermosWorkflow } from "../src/content.ts";
 import {
 	renderClaudeAgent,
 	renderClaudeRunCommand,
@@ -113,6 +114,7 @@ describe("generated package files", () => {
 		expect(generatedThermosWorkflow).toBe(thermosWorkflow);
 		expect(generatedReviewerTaskHead).toBe(reviewerTaskHead);
 		expect(generatedContextSectionLabels).toEqual([...contextSectionLabels]);
+		expect(generatedContextSectionPlaceholders).toEqual([...contextSectionPlaceholders]);
 	});
 
 	test("Pi package sources read the prompts from the generated module", () => {
@@ -125,6 +127,8 @@ describe("generated package files", () => {
 
 		expect(providersSource).toContain('from "./generated/prompts.ts"');
 		expect(providersSource).not.toContain("### Git / diff output");
+		expect(providersSource).not.toContain("<paste git status, base ref, changed-file list");
+		expect(providersSource).not.toContain("<paste changed file contents or focused excerpts");
 	});
 
 	test("host packages copy shared rubric content from core", () => {
@@ -162,7 +166,7 @@ describe("generated package files", () => {
 
 	test("DeepSeek Harness skill keeps the DSH invocation contract", () => {
 		const skill = read("packages/deepseek-harness-thermos/skill/thermos/SKILL.md");
-		expect(countOccurrences(skill, "thermos-findings/1")).toBe(1);
+		expect(countOccurrences(skill, "thermos-findings/1")).toBe(0);
 		expect(skill).toContain("disable-model-invocation: true");
 		expect(skill).not.toContain("subagent_type");
 		expect(skill).not.toContain("run_in_background");

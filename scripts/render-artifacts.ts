@@ -2,7 +2,12 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { contextSectionLabels, reviewerTaskHead, thermosWorkflow } from "../packages/core/src/content.ts";
+import {
+	contextSectionLabels,
+	contextSectionPlaceholders,
+	reviewerTaskHead,
+	thermosWorkflow,
+} from "../packages/core/src/content.ts";
 import {
 	renderClaudeAgent,
 	renderClaudeRunCommand,
@@ -27,6 +32,9 @@ export function renderPiPromptsModule(): string {
 		`export const thermosWorkflow = ${JSON.stringify(thermosWorkflow)};`,
 		`export const reviewerTaskHead = ${JSON.stringify(reviewerTaskHead)};`,
 		`export const contextSectionLabels = [${contextSectionLabels.map((label) => JSON.stringify(label)).join(", ")}];`,
+		`export const contextSectionPlaceholders = [${contextSectionPlaceholders
+			.map((placeholder) => JSON.stringify(placeholder))
+			.join(", ")}];`,
 		"",
 	].join("\n");
 }

@@ -3,6 +3,7 @@ import {
 	codeQualityAgentPrompt,
 	contextSectionLabels,
 	deepReviewAgentPrompt,
+	deepseekHarnessParentReportingNote,
 	deepseekHarnessSkillDescription,
 	deepseekHarnessThermosWorkflow,
 	findingReportContract,
@@ -18,7 +19,6 @@ import {
 	renderCodexThermosSkill,
 	renderDeepseekHarnessPayload,
 	renderDeepseekHarnessSkill,
-	renderPackageReadme,
 	renderPiAgent,
 } from "../src/render.ts";
 
@@ -118,9 +118,10 @@ describe("renderers", () => {
 		expect(skill).toContain(`description: ${deepseekHarnessSkillDescription}`);
 		expect(skill).toContain("disable-model-invocation: true");
 		expect(skill).toContain(deepseekHarnessThermosWorkflow);
-		expect(skill).toContain(findingReportContract);
-		expect(countOccurrences(skill, reportContractMarker)).toBe(1);
-		expect(countOccurrences(skill, "thermos-findings/1")).toBe(1);
+		expect(skill).toContain(deepseekHarnessParentReportingNote);
+		expect(skill).not.toContain(findingReportContract);
+		expect(countOccurrences(skill, reportContractMarker)).toBe(0);
+		expect(countOccurrences(skill, "thermos-findings/1")).toBe(0);
 	});
 
 	test("keeps the DeepSeek Harness skill free of Claude and Codex subagent keys", () => {
@@ -160,12 +161,5 @@ describe("renderers", () => {
 		expect(deep.indexOf(reviewerEvidenceEnvelope)).toBeLessThan(deep.indexOf(deepReviewAgentPrompt));
 		expect(deep.indexOf(deepReviewAgentPrompt)).toBeLessThan(deep.indexOf(thermoNuclearReviewRubric));
 		expect(deep.indexOf(thermoNuclearReviewRubric)).toBeLessThan(deep.indexOf(findingReportContract));
-	});
-
-	test("renders the DeepSeek Harness package README", () => {
-		const readme = renderPackageReadme("deepseek-harness");
-		expect(readme).toContain("# @thinkscape/deepseek-harness-thermos");
-		expect(readme).toContain("deepseek-harness-thermos install");
-		expect(readme).toContain("`/thermos`");
 	});
 });

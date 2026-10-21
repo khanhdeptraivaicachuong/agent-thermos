@@ -1,4 +1,4 @@
-import { contextSectionLabels, reviewerTaskHead } from "./generated/prompts.ts";
+import { contextSectionLabels, contextSectionPlaceholders, reviewerTaskHead } from "./generated/prompts.ts";
 
 export type PiThermosProvider = "nico" | "gotgenes" | "tintinweb";
 
@@ -149,10 +149,10 @@ function buildSharedPrompt(prompt: string): string {
 	return `${reviewerTaskHead}
 
 ${contextSectionLabel(0)}
-<paste git status, base ref, changed-file list, and relevant diff here>
+${contextSectionPlaceholder(0)}
 
 ${contextSectionLabel(1)}
-<paste changed file contents or focused excerpts needed to verify findings here>
+${contextSectionPlaceholder(1)}
 
 ${contextSectionLabel(2)}
 ${prompt}`;
@@ -164,4 +164,12 @@ function contextSectionLabel(index: number): string {
 		throw new Error(`Generated context section label ${index} is missing`);
 	}
 	return label;
+}
+
+function contextSectionPlaceholder(index: number): string {
+	const placeholder = contextSectionPlaceholders[index];
+	if (placeholder === undefined) {
+		throw new Error(`Generated context section placeholder ${index} is missing`);
+	}
+	return placeholder;
 }

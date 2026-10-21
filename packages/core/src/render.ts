@@ -1,19 +1,16 @@
 import {
-	architectureDiagram,
 	codeQualityAgentPrompt,
 	commandDescription,
 	contextSectionLabels,
 	deepReviewAgentPrompt,
 	deepseekHarnessEvidenceEnvelope,
+	deepseekHarnessParentReportingNote,
 	deepseekHarnessSkillDescription,
 	deepseekHarnessThermosWorkflow,
 	findingReportContract,
-	sharedReadmeMethodology,
 	thermoNuclearCodeQualityRubric,
 	thermoNuclearReviewRubric,
-	thermosShortDescription,
 	thermosWorkflow,
-	upstreamCredit,
 	usageArgumentHint,
 } from "./content.ts";
 
@@ -152,7 +149,7 @@ disable-model-invocation: true
 
 ${deepseekHarnessThermosWorkflow}
 
-${findingReportContract}
+${deepseekHarnessParentReportingNote}
 `;
 }
 
@@ -167,69 +164,5 @@ ${agentPrompt}
 ${rubric}
 
 ${findingReportContract}
-`;
-}
-
-export function renderPackageReadme(host: "codex" | "claude" | "pi" | "deepseek-harness"): string {
-	const title =
-		host === "codex"
-			? "@thinkscape/codex-thermos"
-			: host === "claude"
-				? "@thinkscape/claude-thermos"
-				: host === "deepseek-harness"
-					? "@thinkscape/deepseek-harness-thermos"
-					: "@thinkscape/pi-thermos";
-	const command =
-		host === "codex"
-			? "$thermos"
-			: host === "claude"
-				? "/thermos:run, or /thermos after installing the shim"
-				: host === "deepseek-harness"
-					? "/thermos"
-					: "pi-thermos provider orchestration";
-	return `# ${title}
-
-![Pixel-art Thermos logo](./assets/logo.png)
-
-${thermosShortDescription}
-
-${upstreamCredit}
-
-## Install
-
-${
-	host === "codex"
-		? "Install with `codex plugin marketplace add Thinkscape/agent-thermos`, then `codex plugin add thermos@agent-thermos`."
-		: host === "claude"
-			? "Install with `claude plugin marketplace add Thinkscape/agent-thermos`, then `claude plugin install thermos@agent-thermos`."
-			: host === "deepseek-harness"
-				? "Install with `npm install -g @thinkscape/deepseek-harness-thermos`, then `deepseek-harness-thermos install`."
-				: host === "pi"
-					? "Install with `pi install npm:@thinkscape/pi-thermos`."
-					: ""
-}
-
-## Primary invocation
-
-\`${command}\`
-
-## Architecture
-
-${architectureDiagram}
-
-## Methodology
-
-${sharedReadmeMethodology}
-
-## Typical usage
-
-1. Review the current branch against \`main\`.
-2. Gather the diff and changed-file context.
-3. Run both Thermos review passes.
-4. Synthesize prioritized, deduped findings.
-
-## Attribution
-
-This package adapts methodology and documentation from Cursor's MIT-licensed Thermos plugin. See the repository NOTICE for the upstream copyright notice.
 `;
 }

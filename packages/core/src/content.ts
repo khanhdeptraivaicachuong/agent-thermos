@@ -1,39 +1,7 @@
-export const thermosShortDescription =
-	"Thermo-nuclear branch review: deep correctness/security audits plus strict code-quality rubrics and parallel subagent orchestration.";
-
 export const commandDescription =
 	"Run deep correctness/security and strict code-quality reviews of the current branch.";
 
 export const usageArgumentHint = "[base-ref | PR URL | scope]";
-
-export const upstreamCredit =
-	"Adapted from Cursor's MIT-licensed Thermos plugin: https://github.com/cursor/plugins/tree/main/thermos";
-
-export const architectureDiagram = `\`\`\`mermaid
-flowchart TB
-  subgraph L2["Orchestrator"]
-    TH[thermos]
-  end
-
-  subgraph L1["Subagents"]
-    SNR[thermo-nuclear-review-subagent]
-    SNCQ[thermo-nuclear-code-quality-review-subagent]
-  end
-
-  DIFF[git diff + file contents]
-
-  subgraph L0["Rubrics / Skills"]
-    TNR[thermo-nuclear-review]
-    TNCQ[thermo-nuclear-code-quality-review]
-  end
-
-  TH --> SNR
-  TH --> SNCQ
-  SNR --> TNR
-  SNR --> DIFF
-  SNCQ --> TNCQ
-  SNCQ --> DIFF
-\`\`\``;
 
 export const contextSectionLabels = [
 	"### Git / diff output",
@@ -194,10 +162,15 @@ Each prompt carries exactly one rubric. Never put the other pass's rubric, the o
 
 export const deepseekHarnessVerificationStep = `   node <skill base>/scripts/thermos-validate.mjs verify --repo <the repository you reviewed> --scope <the same scope expression you used for the diff> --review deep=.thermos/reviews/deep.md --review quality=.thermos/reviews/quality.md
 
-The validator builds the changed line index from git itself, proves or drops every card, and prints what it found. Report the surviving findings from its output, never from your own reading of the diff. When the validator cannot run, say that the locality check did not run, report every card as unverified, and drop nothing.`;
+The validator builds the changed line index from git itself, proves or drops every card, and prints what it found. Report the surviving findings from its output, never from your own reading of the diff. When the validator cannot run, say that the locality check did not run, report every card as unverified, and drop nothing.
+
+The validator exits 0 when every card was proven, 1 when a card was dropped, 3 when the scope could not be resolved so the locality check did not run, and 4 when a pass returned a report with no readable findings block. On exit 4, name the pass whose report could not be read, report every card the other pass returned as unverified, and never describe the review as clean.`;
 
 export const deepseekHarnessNoSubagentNote =
 	"If this DSH profile has no `subagent` tool, stop and say that the profile cannot run Thermos. Do not run both passes in the same context, because the second pass would see the first pass's findings.";
+
+export const deepseekHarnessParentReportingNote =
+	"The reviewers receive the findings block format inside their own payload files, and you report only what the validator proves.";
 
 export const deepseekHarnessEvidenceEnvelope = `${reviewerEvidenceEnvelope}
 ${contextSectionPlaceholders[2]}`;
@@ -349,10 +322,3 @@ Follow the thermo-nuclear-code-quality-review rubric as the complete rubric: out
 - Be direct and high-conviction; skip cosmetic nits when structural issues exist.
 - Return the findings block described in the finding report contract, and put nothing after it.
 - Do not spawn nested subagents unless the parent explicitly asks.`;
-
-export const sharedReadmeMethodology = `Thermos is useful when a branch is large enough that one review angle is not enough. It deliberately separates two questions:
-
-- **Will this break something or leak risk?** The deep review pass audits correctness, security, devex, feature gates, and side effects.
-- **Did this make the codebase worse?** The code-quality pass audits structure, maintainability, file-size growth, spaghetti branches, abstraction boundaries, and missed simplifications.
-
-The final answer should synthesize the two passes, dedupe findings, lead with the highest-signal risks, and avoid repeating full child-agent transcripts.`;
