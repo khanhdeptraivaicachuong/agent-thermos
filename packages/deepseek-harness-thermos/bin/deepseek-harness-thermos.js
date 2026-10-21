@@ -53,8 +53,13 @@ function dshHome() {
  */
 function assertNotSharedAgentsDir(target) {
 	const segments = target.split(/[\\/]+/);
-	const index = segments.lastIndexOf(".agents");
-	if (index >= 0 && segments[index + 1] === "skills") {
+	// Windows and macOS treat names case-insensitively, so `.Agents` is the same
+	// directory as `.agents`, and any occurrence of the pair puts the target
+	// inside the shared tree, not only the last one.
+	const insideSharedTree = segments.some(
+		(segment, index) => segment.toLowerCase() === ".agents" && segments[index + 1]?.toLowerCase() === "skills",
+	);
+	if (insideSharedTree) {
 		throw new Error(`Refusing to write into the shared agents skills directory: ${target}`);
 	}
 }

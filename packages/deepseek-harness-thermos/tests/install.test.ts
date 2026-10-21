@@ -197,6 +197,55 @@ describe("@thinkscape/deepseek-harness-thermos install", () => {
 		}
 	});
 
+	test("refuses a DSH home inside the shared agents skills directory, whatever the case", () => {
+		for (const sharedName of [".agents", ".Agents", ".AGENTS"]) {
+			const dir = makeTempDir("dsh-thermos-shared-");
+			try {
+				const shared = join(dir, sharedName);
+				mkdirSync(shared, { recursive: true });
+
+				for (const command of ["install", "remove"]) {
+					const result = run([command, "--scope", "user"], { env: { DSH_HOME: shared } });
+					expect(result.exitCode).toBe(1);
+					expect(result.stderr).toContain("Refusing to write into the shared agents skills directory");
+					expect(existsSync(join(shared, "skills"))).toBe(false);
+				}
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		}
+	});
+
+	test("refuses a DSH home whose skills segment differs only in case", () => {
+		const dir = makeTempDir("dsh-thermos-shared-skills-");
+		try {
+			const shared = join(dir, ".agents", "SKILLS");
+			mkdirSync(shared, { recursive: true });
+
+			const result = run(["install", "--scope", "user"], { env: { DSH_HOME: shared } });
+			expect(result.exitCode).toBe(1);
+			expect(result.stderr).toContain("Refusing to write into the shared agents skills directory");
+			expect(existsSync(join(shared, "skills"))).toBe(false);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("refuses a DSH home nested under a shared agents skills directory", () => {
+		const dir = makeTempDir("dsh-thermos-shared-nested-");
+		try {
+			const nested = join(dir, ".agents", "skills", "other-host", ".Agents");
+			mkdirSync(nested, { recursive: true });
+
+			const result = run(["install", "--scope", "user"], { env: { DSH_HOME: nested } });
+			expect(result.exitCode).toBe(1);
+			expect(result.stderr).toContain("Refusing to write into the shared agents skills directory");
+			expect(existsSync(join(nested, "skills"))).toBe(false);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
 	test("removes the installed skill and a stale flat skill file", () => {
 		const dir = makeTempDir("dsh-thermos-remove-");
 		try {
