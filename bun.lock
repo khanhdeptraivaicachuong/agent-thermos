@@ -14,22 +14,29 @@
     },
     "packages/claude-thermos": {
       "name": "@thinkscape/claude-thermos",
-      "version": "0.1.0",
+      "version": "0.1.4",
       "bin": {
         "claude-thermos": "./bin/claude-thermos.js",
       },
     },
     "packages/codex-thermos": {
       "name": "@thinkscape/codex-thermos",
-      "version": "0.1.0",
+      "version": "0.1.4",
     },
     "packages/core": {
       "name": "@thinkscape/thermos-core",
       "version": "0.1.0",
     },
+    "packages/deepseek-harness-thermos": {
+      "name": "@thinkscape/deepseek-harness-thermos",
+      "version": "0.0.0",
+      "bin": {
+        "deepseek-harness-thermos": "./bin/deepseek-harness-thermos.js",
+      },
+    },
     "packages/pi-thermos": {
       "name": "@thinkscape/pi-thermos",
-      "version": "0.1.0",
+      "version": "0.1.4",
       "bin": {
         "pi-thermos": "./bin/pi-thermos.js",
       },
@@ -111,6 +118,8 @@
     "@thinkscape/claude-thermos": ["@thinkscape/claude-thermos@workspace:packages/claude-thermos"],
 
     "@thinkscape/codex-thermos": ["@thinkscape/codex-thermos@workspace:packages/codex-thermos"],
+
+    "@thinkscape/deepseek-harness-thermos": ["@thinkscape/deepseek-harness-thermos@workspace:packages/deepseek-harness-thermos"],
 
     "@thinkscape/pi-thermos": ["@thinkscape/pi-thermos@workspace:packages/pi-thermos"],
 
